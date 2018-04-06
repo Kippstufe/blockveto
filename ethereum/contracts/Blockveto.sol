@@ -14,26 +14,27 @@ contract Blockveto {
 
     Request[] public requests;
     address public manager;
-    uint public minimumContribution;
     mapping(address => bool) public investors;
     uint public investorsCount;
     uint public constant limit = 30000;
     uint public timeFrame;
     uint sumValue; //sumvalue that is requested during 24h
+    mapping(address => uint) public investments;
+    uint public ICOvolume; 
 
     modifier restricted() {
         require(msg.sender == manager);
         _;
     }
 
-    function Blockveto(uint minimum, address creator) public {
+    function Blockveto(address creator) public {
         manager = creator;
-        minimumContribution = minimum;
     }
 
     function contribute() public payable {
-        require(msg.value > minimumContribution);
-
+        //investor sents money to the contract
+        investments[msg.sender] = msg.value;
+        
         investors[msg.sender] = true;
         investorsCount++;
     }
@@ -52,7 +53,7 @@ contract Blockveto {
         requests.push(newRequest);
     }
 
-    function calculateSum() public returns (uint) {
+    function calculateSum() public view returns (uint) {
         uint twentyFourHoursAgo = now - (86400);
         uint sum = 0;
 
@@ -65,31 +66,42 @@ contract Blockveto {
         return sum;
     }
 
-    function approveRequest(uint index) public {
+    function vetoRequest(uint index) public {
+        //stake variable
         Request storage request = requests[index];
 
         require(investors[msg.sender]);
-        require(!request.vetos[msg.sender]);
-
+        //require(!request.vetos[msg.sender]);
+        //msg.value *100 / this.balance 
+        // stake into mapping with address
         request.vetos[msg.sender] = true;
         request.vetoCount++;
     }
+    
+    function calculateStakes() public view returns (uint){
+        
+    }
 
     function finalizeRequest(uint index) public restricted {
+        //uint timeFrame = request[index].creationTime;
+        //uint twentyFourHoursAgo = now - (86400);
+        //require(timeFrame < twentyFourHoursAgo)
+        //require vetoed == false
         Request storage request = requests[index];
-
+        
+        //gewichtete Mehrheit checken
         require(request.vetoCount > (investorsCount / 2));
         require(!request.complete);
-
+        
+        //vetoed == true
         request.recipient.transfer(request.value);
         request.complete = true;
     }
 
     function getSummary() public view returns (
-        uint, uint, uint, uint, address
+        uint, uint, uint, address
     ) {
         return (
-        minimumContribution,
         this.balance,
         requests.length,
         investorsCount,
