@@ -8,6 +8,8 @@ contract Blockveto {
         bool complete;
         uint vetoCount; //how many vetos
         mapping(address => bool) vetos; //who vetod
+        uint creationTime; //timestamp der erstellten Request
+        bool vetoed;
     }
 
     Request[] public requests;
@@ -15,13 +17,9 @@ contract Blockveto {
     uint public minimumContribution;
     mapping(address => bool) public investors;
     uint public investorsCount;
-    uint public constant limit;
+    uint public constant limit = 30000;
     uint public timeFrame;
     uint sumValue; //sumvalue that is requested during 24h
-    string public statusOfRequest;
-    uint public creationTime; //timestamp der erstellten Request
-
-    limit = 30000;
 
     modifier restricted() {
         require(msg.sender == manager);
@@ -42,30 +40,45 @@ contract Blockveto {
 
     function createRequest(string description, uint value, address recipient) public restricted {
         Request memory newRequest = Request({
-           description: description,
-           value: value,
-           recipient: recipient,
-           complete: false,
-           approvalCount: 0
-        });
+            description: description,
+            value: value,
+            recipient: recipient,
+            complete: false,
+            vetoCount: 0,
+            creationTime: now,
+            vetoed: false
+            });
 
         requests.push(newRequest);
+    }
+
+    function calculateSum() public returns (uint) {
+        uint twentyFourHoursAgo = now - (86400);
+        uint sum = 0;
+
+        uint arrayLength = requests.length;
+        for (uint i=0; i<arrayLength; i++) {
+            if (requests[i].creationTime > twentyFourHoursAgo) {
+                sum = sum + requests[i].value;
+            }
+        }
+        return sum;
     }
 
     function approveRequest(uint index) public {
         Request storage request = requests[index];
 
         require(investors[msg.sender]);
-        require(!request.approvals[msg.sender]);
+        require(!request.vetos[msg.sender]);
 
-        request.approvals[msg.sender] = true;
-        request.approvalCount++;
+        request.vetos[msg.sender] = true;
+        request.vetoCount++;
     }
 
     function finalizeRequest(uint index) public restricted {
         Request storage request = requests[index];
 
-        require(request.approvalCount > (investorsCount / 2));
+        require(request.vetoCount > (investorsCount / 2));
         require(!request.complete);
 
         request.recipient.transfer(request.value);
@@ -73,14 +86,14 @@ contract Blockveto {
     }
 
     function getSummary() public view returns (
-      uint, uint, uint, uint, address
-      ) {
+        uint, uint, uint, uint, address
+    ) {
         return (
-          minimumContribution,
-          this.balance,
-          requests.length,
-          investorsCount,
-          manager
+        minimumContribution,
+        this.balance,
+        requests.length,
+        investorsCount,
+        manager
         );
     }
 
