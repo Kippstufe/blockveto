@@ -10,6 +10,7 @@ contract Blockveto {
         mapping(address => bool) vetos; //who vetod
         uint creationTime; //timestamp der erstellten Request
         bool vetoed;
+        uint approvePercentage;
     }
 
     Request[] public requests;
@@ -25,7 +26,6 @@ contract Blockveto {
     uint public stake;
     uint public sumInvestments;
     uint public indexOfInvestor;
-    uint public approvePercentage;
 
     modifier restricted() {
         require(msg.sender == manager);
@@ -35,7 +35,7 @@ contract Blockveto {
     function Blockveto(address creator) public {
         manager = creator;
     }
-    
+
     function contribute() public payable returns (uint) {
         //investor sents money to the contract
         investments[msg.sender] = msg.value;
@@ -44,8 +44,9 @@ contract Blockveto {
         investors[msg.sender] = true;
         investorsCount++;
     }
-    
+
     function createRequest(string description, uint value, address recipient) public restricted {
+        require(value > 0);
         value = value * 1000000000000000000;
         if (value > limit) {
             Request memory newRequest = Request({
@@ -55,14 +56,14 @@ contract Blockveto {
                 complete: false,
                 vetoCount: 0,
                 creationTime: now,
-                vetoed: false
+                vetoed: false,
+                approvePercentage: 100
                 });
-    
+
             requests.push(newRequest);
-            approvePercentage = 100;
             uint arrayLength = investorsAddress.length;
             for (uint i=0; i<arrayLength; i++) {
-                calculateStake(investorsAddress[i]); 
+                calculateStake(investorsAddress[i]);
             }
         } else {
             Request memory transferRequest = Request({
@@ -72,12 +73,12 @@ contract Blockveto {
                 complete: false,
                 vetoCount: 0,
                 creationTime: now,
-                vetoed: false
+                vetoed: false,
+                approvePercentage: 100
                 });
-                approvePercentage =100;
         }
-            requests.push(transferRequest);
-        
+        requests.push(transferRequest);
+
     }
 
     function calculateSum() public view returns (uint) {
@@ -92,10 +93,9 @@ contract Blockveto {
         }
         return sum;
     }
-    
-    function calculateStake(address investor) {
+
+    function calculateStake(address investor) private {
         stakeOfInvestors[investor] = investments[investor] * 100 / this.balance;
-        
     }
 
     function vetoRequest(uint index) public {
@@ -107,20 +107,20 @@ contract Blockveto {
         //msg.value *100 / this.balance 
         // stake into mapping with address
         request.vetos[msg.sender] = true;
-        approvePercentage = approvePercentage - stakeOfInvestors[msg.sender];
+        request.approvePercentage = request.approvePercentage - stakeOfInvestors[msg.sender];
         request.vetoCount++;
     }
 
     function finalizeRequest(uint index) public restricted {
         Request storage request = requests[index];
-    //    timeFrame = requests[index].creationTime;
-  //      uint twentyFourHoursAgo = now - (86400);
-//        require(timeFrame < twentyFourHoursAgo);
+        //    timeFrame = requests[index].creationTime;
+        //      uint twentyFourHoursAgo = now - (86400);
+        //        require(timeFrame < twentyFourHoursAgo);
         //require vetoed == false
         //gewichtete Mehrheit checken
-        require(approvePercentage > 50);
+        require(request.approvePercentage > 50);
         require(!request.complete);
-        
+
         //vetoed == true
         request.recipient.transfer(request.value);
         request.complete = true;
