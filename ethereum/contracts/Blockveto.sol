@@ -16,7 +16,7 @@ contract Blockveto {
     address public manager;
     mapping(address => bool) public investors;
     uint public investorsCount;
-    uint public constant limit = 30000;
+    uint public constant limit = 100000000000000000000; //in Wei  
     uint public timeFrame;
     uint sumValue; //sumvalue that is requested during 24h
     mapping(address => uint) public investments;
@@ -35,7 +35,7 @@ contract Blockveto {
     function Blockveto(address creator) public {
         manager = creator;
     }
-
+    
     function contribute() public payable returns (uint) {
         //investor sents money to the contract
         investments[msg.sender] = msg.value;
@@ -46,6 +46,7 @@ contract Blockveto {
     }
     
     function createRequest(string description, uint value, address recipient) public restricted {
+        value = value * 1000000000000000000;
         if (value > limit) {
             Request memory newRequest = Request({
                 description: description,
@@ -112,9 +113,9 @@ contract Blockveto {
 
     function finalizeRequest(uint index) public restricted {
         Request storage request = requests[index];
-        timeFrame = requests[index].creationTime;
-        uint twentyFourHoursAgo = now - (86400);
-        require(timeFrame < twentyFourHoursAgo);
+    //    timeFrame = requests[index].creationTime;
+  //      uint twentyFourHoursAgo = now - (86400);
+//        require(timeFrame < twentyFourHoursAgo);
         //require vetoed == false
         //gewichtete Mehrheit checken
         require(approvePercentage > 50);
