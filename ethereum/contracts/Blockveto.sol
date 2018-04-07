@@ -11,6 +11,7 @@ contract Blockveto {
         uint creationTime; //timestamp der erstellten Request
         bool vetoed;
         uint approvePercentage;
+        bool vetoable;
     }
 
     Request[] public requests;
@@ -47,7 +48,9 @@ contract Blockveto {
 
     function createRequest(string description, uint value, address recipient) public restricted {
         require(value > 0);
-        value = value * 1000000000000000000;
+        require(recipient > 0x0);
+
+        value = value * 1000000000000000000; // wei to ether
         if (value > limit) {
             Request memory newRequest = Request({
                 description: description,
@@ -57,7 +60,8 @@ contract Blockveto {
                 vetoCount: 0,
                 creationTime: now,
                 vetoed: false,
-                approvePercentage: 100
+                approvePercentage: 100,
+                vetoable: true
                 });
 
             requests.push(newRequest);
@@ -74,24 +78,12 @@ contract Blockveto {
                 vetoCount: 0,
                 creationTime: now,
                 vetoed: false,
-                approvePercentage: 100
+                approvePercentage: 100,
+                vetoable: false
                 });
         }
         requests.push(transferRequest);
 
-    }
-
-    function calculateSum() public view returns (uint) {
-        uint twentyFourHoursAgo = now - (86400);
-        uint sum = 0;
-
-        uint arrayLength = requests.length;
-        for (uint i=0; i<arrayLength; i++) {
-            if (requests[i].creationTime > twentyFourHoursAgo) {
-                sum = sum + requests[i].value;
-            }
-        }
-        return sum;
     }
 
     function calculateStake(address investor) private {
@@ -113,18 +105,32 @@ contract Blockveto {
 
     function finalizeRequest(uint index) public restricted {
         Request storage request = requests[index];
-        //    timeFrame = requests[index].creationTime;
-        //      uint twentyFourHoursAgo = now - (86400);
-        //        require(timeFrame < twentyFourHoursAgo);
-        //require vetoed == false
-        //gewichtete Mehrheit checken
-        require(request.approvePercentage > 50);
         require(!request.complete);
 
-        //vetoed == true
+        if (request.vetoable) {
+            // has enough time passed to finalize?
+            uint minCreationTime = now - 60; //86400: 24 hours
+            require(request.creationTime < minCreationTime);
+            require(request.approvePercentage > 50);
+        }
+
         request.recipient.transfer(request.value);
         request.complete = true;
     }
+
+    // not needed yet
+//    function calculateSum() public view returns (uint) {
+//        uint twentyFourHoursAgo = now - (86400);
+//        uint sum = 0;
+//
+//        uint arrayLength = requests.length;
+//        for (uint i=0; i<arrayLength; i++) {
+//            if (requests[i].creationTime > twentyFourHoursAgo) {
+//                sum = sum + requests[i].value;
+//            }
+//        }
+//        return sum;
+//    }
 
     function getSummary() public view returns (
         uint, uint, uint, address
