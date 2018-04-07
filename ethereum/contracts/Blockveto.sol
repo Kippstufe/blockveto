@@ -46,17 +46,37 @@ contract Blockveto {
     }
     
     function createRequest(string description, uint value, address recipient) public restricted {
-        Request memory newRequest = Request({
-            description: description,
-            value: value,
-            recipient: recipient,
-            complete: false,
-            vetoCount: 0,
-            creationTime: now,
-            vetoed: false
-            });
-
-        requests.push(newRequest);
+        if (value > limit) {
+            Request memory newRequest = Request({
+                description: description,
+                value: value,
+                recipient: recipient,
+                complete: false,
+                vetoCount: 0,
+                creationTime: now,
+                vetoed: false
+                });
+    
+            requests.push(newRequest);
+            approvePercentage = 100;
+            uint arrayLength = investorsAddress.length;
+            for (uint i=0; i<arrayLength; i++) {
+                calculateStake(investorsAddress[i]); 
+            }
+        } else {
+            Request memory transferRequest = Request({
+                description: description,
+                value: value,
+                recipient: recipient,
+                complete: false,
+                vetoCount: 0,
+                creationTime: now,
+                vetoed: false
+                });
+                approvePercentage =100;
+        }
+            requests.push(transferRequest);
+        
     }
 
     function calculateSum() public view returns (uint) {
@@ -72,13 +92,8 @@ contract Blockveto {
         return sum;
     }
     
-    function calculateStake(address investor) returns (uint) {
-        stake = investments[investor] * 100 / this.balance;
-        approvePercentage = 100 - stake;
-        return stake;
-    }
-    
-    function calculateVetoStake(address investor) {
+    function calculateStake(address investor) {
+        stakeOfInvestors[investor] = investments[investor] * 100 / this.balance;
         
     }
 
@@ -91,20 +106,16 @@ contract Blockveto {
         //msg.value *100 / this.balance 
         // stake into mapping with address
         request.vetos[msg.sender] = true;
-        calculateStake(msg.sender);
+        approvePercentage = approvePercentage - stakeOfInvestors[msg.sender];
         request.vetoCount++;
     }
 
     function finalizeRequest(uint index) public restricted {
-        //uint timeFrame = request[index].creationTime;
-        //uint twentyFourHoursAgo = now - (86400);
-        //require(timeFrame < twentyFourHoursAgo)
-        //require vetoed == false
         Request storage request = requests[index];
-        
-        //stake = msg.value * 100 / this.balance;
-        //stakeOfInvestors[msg.sender] = stake;
-        
+        timeFrame = requests[index].creationTime;
+        uint twentyFourHoursAgo = now - (86400);
+        require(timeFrame < twentyFourHoursAgo);
+        //require vetoed == false
         //gewichtete Mehrheit checken
         require(approvePercentage > 50);
         require(!request.complete);
