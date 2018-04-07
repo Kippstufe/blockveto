@@ -20,7 +20,12 @@ contract Blockveto {
     uint public timeFrame;
     uint sumValue; //sumvalue that is requested during 24h
     mapping(address => uint) public investments;
-    uint public ICOvolume; 
+    mapping(address => uint) public stakeOfInvestors;
+    address[] public investorsAddress;
+    uint public stake;
+    uint public sumInvestments;
+    uint public indexOfInvestor;
+    uint public approvePercentage;
 
     modifier restricted() {
         require(msg.sender == manager);
@@ -31,14 +36,15 @@ contract Blockveto {
         manager = creator;
     }
 
-    function contribute() public payable {
+    function contribute() public payable returns (uint) {
         //investor sents money to the contract
         investments[msg.sender] = msg.value;
-        
+        investorsAddress.push(msg.sender);
+        sumInvestments = msg.value + sumInvestments;
         investors[msg.sender] = true;
         investorsCount++;
     }
-
+    
     function createRequest(string description, uint value, address recipient) public restricted {
         Request memory newRequest = Request({
             description: description,
@@ -65,6 +71,16 @@ contract Blockveto {
         }
         return sum;
     }
+    
+    function calculateStake(address investor) returns (uint) {
+        stake = investments[investor] * 100 / this.balance;
+        approvePercentage = 100 - stake;
+        return stake;
+    }
+    
+    function calculateVetoStake(address investor) {
+        
+    }
 
     function vetoRequest(uint index) public {
         //stake variable
@@ -75,11 +91,8 @@ contract Blockveto {
         //msg.value *100 / this.balance 
         // stake into mapping with address
         request.vetos[msg.sender] = true;
+        calculateStake(msg.sender);
         request.vetoCount++;
-    }
-    
-    function calculateStakes() public view returns (uint){
-        
     }
 
     function finalizeRequest(uint index) public restricted {
@@ -89,8 +102,11 @@ contract Blockveto {
         //require vetoed == false
         Request storage request = requests[index];
         
+        //stake = msg.value * 100 / this.balance;
+        //stakeOfInvestors[msg.sender] = stake;
+        
         //gewichtete Mehrheit checken
-        require(request.vetoCount > (investorsCount / 2));
+        require(approvePercentage > 50);
         require(!request.complete);
         
         //vetoed == true
